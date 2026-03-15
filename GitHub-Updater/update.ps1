@@ -16,7 +16,7 @@ $INSTALL_PATH  = "C:\Tools\caller"                   # Local destination folder
 $VERSION_FILE  = "$INSTALL_PATH\.version"           # Stores the last known commit SHA
 $LOG_FILE      = "$INSTALL_PATH\updater.log"        # Log file path
 $USE_RELEASES  = $false                             # true = track Releases, false = track branch commits
-$GITHUB_TOKEN  = ""         # Personal Access Token (required for private repos)
+$GITHUB_TOKEN  = "***"         # Personal Access Token (required for private repos)
 # ============================================================
 
 $ErrorActionPreference = "Stop"
@@ -83,13 +83,19 @@ function Install-Update {
 
     try {
         Write-Log "Downloading from $DownloadUrl ..."
-        # Resolve the GitHub API redirect to get the real CDN URL, then download without auth header
-        $redirect = Invoke-WebRequest -Uri $DownloadUrl -Headers (Get-AuthHeaders) -MaximumRedirection 0 -ErrorAction SilentlyContinue -UseBasicParsing
-        $cdnUrl = $redirect.Headers['Location']
-        if ($cdnUrl) {
-            Invoke-WebRequest -Uri $cdnUrl -OutFile $tmpZip -TimeoutSec 120 -UseBasicParsing
-        } else {
-            Invoke-WebRequest -Uri $DownloadUrl -OutFile $tmpZip -Headers (Get-AuthHeaders) -TimeoutSec 120 -UseBasicParsing
+        $prevProgress = $ProgressPreference
+        $ProgressPreference = 'SilentlyContinue'
+        try {
+            # Resolve the GitHub API redirect to get the real CDN URL, then download without auth header
+            $redirect = Invoke-WebRequest -Uri $DownloadUrl -Headers (Get-AuthHeaders) -MaximumRedirection 0 -ErrorAction SilentlyContinue -UseBasicParsing
+            $cdnUrl = $redirect.Headers['Location']
+            if ($cdnUrl) {
+                Invoke-WebRequest -Uri $cdnUrl -OutFile $tmpZip -TimeoutSec 120 -UseBasicParsing
+            } else {
+                Invoke-WebRequest -Uri $DownloadUrl -OutFile $tmpZip -Headers (Get-AuthHeaders) -TimeoutSec 120 -UseBasicParsing
+            }
+        } finally {
+            $ProgressPreference = $prevProgress
         }
 
         Write-Log "Extracting archive ..."
