@@ -8,14 +8,14 @@
 # ============================================================
 #  CONFIGURATION — adjust these values
 # ============================================================
-GITHUB_OWNER="octocat"
-GITHUB_REPO="Hello-World"
+GITHUB_OWNER="MiDo1412"
+GITHUB_REPO="AutoDartsCaller"
 GITHUB_BRANCH="main"
-INSTALL_PATH="/opt/myapp"           # Local destination folder
+INSTALL_PATH="/opt/caller"          # Local destination folder
 VERSION_FILE="$INSTALL_PATH/.version"
 LOG_FILE="/var/log/github-updater.log"
 USE_RELEASES=false                  # true = track Releases, false = track branch commits
-GITHUB_TOKEN="ghp_xxxxxxxxxxxxxxxxxxxx"   # Personal Access Token (required for private repos)
+GITHUB_TOKEN=""                     # Personal Access Token (required for private repos)
 # ============================================================
 
 # ----- validate config ---------------------------------------
@@ -83,8 +83,15 @@ install_update() {
     trap 'rm -rf "$tmp_tar" "$tmp_dir"' RETURN
 
     log "Downloading from $REMOTE_URL ..."
-    curl "${CURL_OPTS[@]}" --max-time 300 -o "$tmp_tar" "$REMOTE_URL" \
-        || die "Download failed."
+    # Resolve the GitHub API redirect to get the real CDN URL, then download without auth header
+    local cdn_url; cdn_url=$(curl "${CURL_OPTS[@]}" --max-redirs 0 -o /dev/null -w '%{redirect_url}' "$REMOTE_URL" 2>/dev/null || true)
+    if [[ -n "$cdn_url" ]]; then
+        curl -fsSL --max-time 300 -o "$tmp_tar" "$cdn_url" \
+            || die "Download failed."
+    else
+        curl "${CURL_OPTS[@]}" --max-time 300 -o "$tmp_tar" "$REMOTE_URL" \
+            || die "Download failed."
+    fi
 
     log "Extracting archive ..."
     tar -xzf "$tmp_tar" -C "$tmp_dir" \
