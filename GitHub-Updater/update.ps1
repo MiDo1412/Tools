@@ -1,4 +1,3 @@
-#Requires -Version 5.1
 <#
 .SYNOPSIS
     GitHub Repository Auto-Updater (Windows)
@@ -8,16 +7,16 @@
 #>
 
 # ============================================================
-#  CONFIGURATION — adjust these values
+#  CONFIGURATION - adjust these values
 # ============================================================
-$GITHUB_OWNER  = "octocat"                          # GitHub username or org
-$GITHUB_REPO   = "Hello-World"                      # Repository name
+$GITHUB_OWNER  = "MiDo1412"                          # GitHub username or org
+$GITHUB_REPO   = "AutoDartsCaller"                      # Repository name
 $GITHUB_BRANCH = "main"                             # Branch to track
-$INSTALL_PATH  = "C:\Tools\MyApp"                   # Local destination folder
+$INSTALL_PATH  = "C:\Tools\caller"                   # Local destination folder
 $VERSION_FILE  = "$INSTALL_PATH\.version"           # Stores the last known commit SHA
 $LOG_FILE      = "$INSTALL_PATH\updater.log"        # Log file path
 $USE_RELEASES  = $false                             # true = track Releases, false = track branch commits
-$GITHUB_TOKEN  = "ghp_xxxxxxxxxxxxxxxxxxxx"         # Personal Access Token (required for private repos)
+$GITHUB_TOKEN  = ""         # Personal Access Token (required for private repos)
 # ============================================================
 
 $ErrorActionPreference = "Stop"
@@ -58,12 +57,10 @@ function Invoke-GitHubApi {
 function Get-RemoteVersion {
     if ($USE_RELEASES) {
         $release = Invoke-GitHubApi "$API_BASE/releases/latest"
-        # zipball_url is already an API URL that accepts token auth
         return [PSCustomObject]@{ Id = $release.tag_name; DownloadUrl = $release.zipball_url }
     } else {
         $commit = Invoke-GitHubApi "$API_BASE/commits/$GITHUB_BRANCH"
         $sha = $commit.sha
-        # Use API zipball endpoint — supports Bearer auth for private repos
         $zipUrl = "$API_BASE/zipball/$GITHUB_BRANCH"
         return [PSCustomObject]@{ Id = $sha; DownloadUrl = $zipUrl }
     }
@@ -86,8 +83,14 @@ function Install-Update {
 
     try {
         Write-Log "Downloading from $DownloadUrl ..."
-        # API zipball endpoint redirects once; follow with auth header on redirect too
-        Invoke-WebRequest -Uri $DownloadUrl -OutFile $tmpZip -Headers (Get-AuthHeaders) -TimeoutSec 120
+        # Resolve the GitHub API redirect to get the real CDN URL, then download without auth header
+        $redirect = Invoke-WebRequest -Uri $DownloadUrl -Headers (Get-AuthHeaders) -MaximumRedirection 0 -ErrorAction SilentlyContinue -UseBasicParsing
+        $cdnUrl = $redirect.Headers['Location']
+        if ($cdnUrl) {
+            Invoke-WebRequest -Uri $cdnUrl -OutFile $tmpZip -TimeoutSec 120 -UseBasicParsing
+        } else {
+            Invoke-WebRequest -Uri $DownloadUrl -OutFile $tmpZip -Headers (Get-AuthHeaders) -TimeoutSec 120 -UseBasicParsing
+        }
 
         Write-Log "Extracting archive ..."
         Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
@@ -124,13 +127,13 @@ try {
     Write-Log "Local  version : $(if ($local) { $local } else { '(none)' })"
 
     if ($remote.Id -ne $local) {
-        Write-Log "New version detected — starting download ..."
+        Write-Log "New version detected - starting download ..."
         Install-Update -DownloadUrl $remote.DownloadUrl -VersionId $remote.Id
     } else {
         Write-Log "Already up-to-date."
     }
 }
 catch {
-    Write-Log "ERROR: $_" "ERROR"
+    Write-Log ('ERROR: ' + $_) 'ERROR'
     exit 1
 }
