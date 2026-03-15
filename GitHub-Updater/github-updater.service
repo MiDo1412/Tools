@@ -1,0 +1,31 @@
+# ==============================================================
+#  systemd service unit — GitHub Auto-Updater (Linux)
+#
+#  Installation (as root):
+#    1. cp github-updater.service /etc/systemd/system/
+#    2. systemctl daemon-reload
+#    3. systemctl enable github-updater.service
+#    4. systemctl start  github-updater.service   # optional: run now
+#
+#  View logs:
+#    journalctl -u github-updater.service -f
+#    cat /var/log/github-updater.log
+# ==============================================================
+
+[Unit]
+Description=GitHub Repository Auto-Updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust the path to where you placed update.sh
+ExecStart=/opt/github-updater/update.sh
+StandardOutput=journal
+StandardError=journal
+# Run as root so it can write to system paths; use User= for non-system paths
+User=root
+
+[Install]
+# Runs once per boot after the network is available
+WantedBy=multi-user.target
