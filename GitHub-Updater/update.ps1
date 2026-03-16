@@ -16,7 +16,7 @@ $INSTALL_PATH  = "C:\Tools\caller"                   # Local destination folder
 $VERSION_FILE  = "$INSTALL_PATH\.version"           # Stores the last known commit SHA
 $LOG_FILE      = "$INSTALL_PATH\updater.log"        # Log file path
 $USE_RELEASES  = $false                             # true = track Releases, false = track branch commits
-$GITHUB_TOKEN  = "***"         # Personal Access Token (required for private repos)
+$GITHUB_TOKEN  = ""         # Personal Access Token (required for private repos)
 # ============================================================
 
 $ErrorActionPreference = "Stop"
@@ -108,6 +108,15 @@ function Install-Update {
         # Ensure destination exists
         if (-not (Test-Path $INSTALL_PATH)) {
             New-Item -ItemType Directory -Path $INSTALL_PATH -Force | Out-Null
+        }
+
+        # Remove only items that are also present in the repo (leaves unrelated files/folders untouched)
+        Write-Log "Cleaning repo-managed items from destination ..."
+        Get-ChildItem -Path $innerFolder.FullName -Force | ForEach-Object {
+            $target = Join-Path $INSTALL_PATH $_.Name
+            if (Test-Path $target) {
+                Remove-Item -Path $target -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
 
         Write-Log "Copying files to $INSTALL_PATH ..."
