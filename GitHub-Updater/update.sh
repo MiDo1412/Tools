@@ -103,13 +103,18 @@ install_update() {
 
     mkdir -p "$INSTALL_PATH"
 
+    # Remove only items that are also present in the repo (leaves unrelated files/folders untouched)
+    log "Cleaning repo-managed items from destination ..."
+    for item in "$inner_dir"/* "$inner_dir"/.[!.]*; do
+        [[ -e "$item" ]] || continue
+        target="$INSTALL_PATH/$(basename "$item")"
+        if [[ -e "$target" ]]; then
+            rm -rf "$target"
+        fi
+    done
+
     log "Copying files to $INSTALL_PATH ..."
-    # rsync preferred for reliability; fallback to cp
-    if command -v rsync &>/dev/null; then
-        rsync -a --delete "$inner_dir/" "$INSTALL_PATH/"
-    else
-        cp -a "$inner_dir/." "$INSTALL_PATH/"
-    fi
+    cp -a "$inner_dir/." "$INSTALL_PATH/"
 
     echo -n "$REMOTE_ID" > "$VERSION_FILE"
     log "Update complete. Version: $REMOTE_ID"
